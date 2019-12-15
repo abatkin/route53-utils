@@ -22,6 +22,7 @@ enum Command {
 }
 
 #[derive(StructOpt, Debug)]
+#[structopt(name = "route53-util", about = "Utilities for working with AWS Route53", author = "Adam Batkin")]
 struct CmdLine {
     /// AWS Profile
     #[structopt(name = "profile", long)]
