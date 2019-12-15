@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use rusoto_core::{Client, HttpClient, Region};
 use rusoto_core::credential::{ChainProvider, ProfileProvider};
+use rusoto_core::{Client, HttpClient, Region};
 use rusoto_route53::Route53Client;
 use structopt::StructOpt;
 
@@ -47,10 +47,6 @@ fn main() -> Result<()> {
     let result = match args.command {
         Command::UpdateRecord(params) => update_record(&client, params),
     }?;
-
-    if result {
-        ::std::process::exit(0)
-    } else {
-        ::std::process::exit(1)
-    }
+    let code = if result { 0 } else { 1 };
+    ::std::process::exit(code)
 }
