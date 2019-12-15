@@ -6,7 +6,7 @@ create records in [AWS Route 53](https://aws.amazon.com/route53/) and then wait 
 across the AWS infrastructure before returning.
 
 There are currently two subcommands:
-* `update-record` - Update a record (UPSERT) and wait for completion
+* `update-record` - Update a record (UPSERT by default) and wait for completion
 * `wait-for-change` - Wait for a Route 53 change to be complete
 
 Running

@@ -16,9 +16,13 @@ pub struct UpdateRecordParams {
     #[structopt(name = "name", long)]
     pub dns_name: String,
 
-    /// Record Type
+    /// Record Type (i.e. A, CNAME, TXT, etc...)
     #[structopt(name = "type", long)]
     pub record_type: String,
+
+    /// Action (CREATE, DELETE, UPSERT)
+    #[structopt(name = "action", long, default_value = "UPSERT")]
+    pub action: String,
 
     /// Value(s)
     #[structopt(name = "value", long, required = true)]
@@ -50,7 +54,7 @@ pub fn update_record(client: &Route53Client, params: UpdateRecordParams) -> Resu
         .change_resource_record_sets(ChangeResourceRecordSetsRequest {
             change_batch: ChangeBatch {
                 changes: vec![Change {
-                    action: "UPSERT".to_string(),
+                    action: params.action,
                     resource_record_set: ResourceRecordSet {
                         alias_target: None,
                         failover: None,
