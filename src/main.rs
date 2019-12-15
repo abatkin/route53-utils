@@ -5,13 +5,20 @@ use rusoto_route53::Route53Client;
 use structopt::StructOpt;
 
 use update_record::*;
+use wait_for_change::*;
 
 mod update_record;
+mod wait_for_change;
 
 #[derive(StructOpt, Debug)]
 enum Command {
+    /// Update a Resource Record within a zone
     #[structopt(name = "update-record")]
     UpdateRecord(UpdateRecordParams),
+
+    /// Wait for a change (by ID)
+    #[structopt(name = "wait-for-change")]
+    WaitForChange(WaitForChangeParams),
 }
 
 #[derive(StructOpt, Debug)]
@@ -46,6 +53,7 @@ fn main() -> Result<()> {
 
     let result = match args.command {
         Command::UpdateRecord(params) => update_record(&client, params),
+        Command::WaitForChange(params) => wait_for_change::wait_for_change(&client, params),
     }?;
     let code = if result { 0 } else { 1 };
     ::std::process::exit(code)
