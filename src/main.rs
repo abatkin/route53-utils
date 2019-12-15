@@ -44,7 +44,13 @@ fn main() -> Result<()> {
         args.region,
     );
 
-    match args.command {
+    let result = match args.command {
         Command::UpdateRecord(params) => update_record(&client, params),
+    }?;
+
+    if result {
+        ::std::process::exit(0)
+    } else {
+        ::std::process::exit(1)
     }
 }

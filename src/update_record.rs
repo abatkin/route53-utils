@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
-use rusoto_route53::{Change, ChangeBatch, ChangeResourceRecordSetsRequest, GetChangeRequest, ResourceRecord, ResourceRecordSet, Route53, Route53Client};
+use rusoto_route53::{Change, ChangeBatch, ChangeResourceRecordSetsRequest, GetChangeRequest, ResourceRecord, ResourceRecordSet, Route53, Route53Client, ChangeInfo};
 use structopt::StructOpt;
+use std::time::{Instant, Duration};
 
 #[derive(StructOpt, Debug)]
 pub struct UpdateRecordParams {
@@ -27,10 +28,22 @@ pub struct UpdateRecordParams {
     /// Comment
     #[structopt(name = "comment", long)]
     pub comment: Option<String>,
+
+    /// Do not wait for completion
+    #[structopt(name = "no-wait", long)]
+    pub no_wait: bool,
+
+    /// Sleep time (in seconds) to sleep between completion checks
+    #[structopt(name = "sleep", long, default_value = "5")]
+    pub sleep_time: u64,
+
+    /// Maximum time (in seconds) to wait for completion, before giving up
+    #[structopt(name = "max-wait", long, default_value = "120")]
+    pub max_wait: u64,
 }
 
 
-pub fn update_record(client: &Route53Client, params: UpdateRecordParams) -> Result<()> {
+pub fn update_record(client: &Route53Client, params: UpdateRecordParams) -> Result<bool> {
     let result = client.change_resource_record_sets(ChangeResourceRecordSetsRequest {
         change_batch: ChangeBatch {
             changes: vec![Change {
@@ -63,20 +76,46 @@ pub fn update_record(client: &Route53Client, params: UpdateRecordParams) -> Resu
         hosted_zone_id: params.hosted_zone_id.to_string(),
     }).sync().context("unable to execute ChangeResourceRecordSets")?;
 
-    let mut id = result.change_info.id;
-    if id.contains('/') {
-        let parts = id.splitn(2, '/').collect::<Vec<&str>>();
-        id = parts[1].to_string();
-    }
-    let mut current_status = result.change_info.status;
-    while current_status != "INSYNC" {
-        std::thread::sleep(std::time::Duration::from_secs(5));
+    if params.no_wait {
+        Ok(true)
+    } else if is_complete(&result.change_info) {
+        Ok(true)
+    } else {
+        let mut id = result.change_info.id;
+        if id.contains('/') {
+            let parts = id.splitn(2, '/').collect::<Vec<&str>>();
+            id = parts[1].to_string();
+        }
 
-        let result = client.get_change(GetChangeRequest {
-            id: (&id).clone()
-        }).sync().with_context(|| format!("unable to GetChangeRequest({})", id))?;
-        current_status = result.change_info.status
+        wait_for_completion(client, &id, params.sleep_time, params.max_wait)
     }
+}
 
-    Ok(())
+pub fn wait_for_completion(client: &Route53Client, change_id: &str, sleep_time: u64, max_wait: u64) -> Result<bool> {
+    let start_time = Instant::now();
+    loop {
+        if check_for_completion(client, change_id)? {
+            return Ok(true);
+        }
+
+        std::thread::sleep(std::time::Duration::from_secs(sleep_time));
+
+        let now = Instant::now();
+        let duration = now - start_time;
+        if duration > Duration::from_secs(max_wait) {
+            break
+        }
+    }
+    Ok(false)
+}
+
+fn check_for_completion(client: &Route53Client, change_id: &str) -> Result<bool> {
+    let result = client.get_change(GetChangeRequest {
+        id: change_id.to_string()
+    }).sync().with_context(|| format!("unable to GetChangeRequest({})", change_id))?;
+    Ok(is_complete(&result.change_info))
+}
+
+fn is_complete(change_info: &ChangeInfo) -> bool {
+    change_info.status == "INSYNC"
 }
