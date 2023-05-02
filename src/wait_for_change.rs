@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use rusoto_route53::{ChangeInfo, GetChangeRequest, Route53, Route53Client};
+use aws_sdk_route53::types::ChangeInfo;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -23,24 +23,28 @@ pub struct WaitForChangeParams {
     pub max_wait: u64,
 }
 
-pub fn wait_for_change(client: &Route53Client, params: WaitForChangeParams) -> Result<bool> {
+pub async fn wait_for_change(
+    client: &aws_sdk_route53::Client,
+    params: WaitForChangeParams,
+) -> Result<bool> {
     wait_for_completion(
         client,
         &params.change_id,
         params.sleep_time,
         if params.no_wait { 0 } else { params.max_wait },
     )
+    .await
 }
 
-pub fn wait_for_completion(
-    client: &Route53Client,
+pub async fn wait_for_completion(
+    client: &aws_sdk_route53::Client,
     change_id: &str,
     sleep_time: u64,
     max_wait: u64,
 ) -> Result<bool> {
     let start_time = Instant::now();
     loop {
-        if check_for_completion(client, change_id)? {
+        if check_for_completion(client, change_id).await? {
             println!("Complete!");
             return Ok(true);
         }
@@ -62,16 +66,19 @@ pub fn wait_for_completion(
     Ok(false)
 }
 
-pub fn check_for_completion(client: &Route53Client, change_id: &str) -> Result<bool> {
+pub async fn check_for_completion(
+    client: &aws_sdk_route53::Client,
+    change_id: &str,
+) -> Result<bool> {
     let result = client
-        .get_change(GetChangeRequest {
-            id: change_id.to_string(),
-        })
-        .sync()
-        .with_context(|| format!("unable to GetChangeRequest({})", change_id))?;
-    Ok(is_change_complete(&result.change_info))
+        .get_change()
+        .id(change_id)
+        .send()
+        .await
+        .with_context(|| format!("failed to check completion for change_id {}", change_id))?;
+    Ok(is_change_complete(&result.change_info.unwrap()))
 }
 
 pub fn is_change_complete(change_info: &ChangeInfo) -> bool {
-    change_info.status == "INSYNC"
+    change_info.status().unwrap().as_str() == "INSYNC"
 }

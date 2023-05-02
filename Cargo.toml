@@ -1,6 +1,6 @@
 [package]
 name = "route53-util"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Adam Batkin <adam@batkin.net>"]
 edition = "2018"
 
@@ -8,8 +8,8 @@ edition = "2018"
 lto = true
 
 [dependencies]
-structopt = "0.3.5"
-anyhow = "1.0.25"
-rusoto_route53 = { version = "0.42.0", features = ["rustls"], default-features = false }
-rusoto_credential = "0.42.0"
-rusoto_core = { version = "0.42.0", features = ["rustls"], default-features = false }
+structopt = "0.3"
+anyhow = "1"
+aws-config = "0.55"
+aws-sdk-route53 = "0.26.0"
+tokio = { version = "1", features = ["full"] }
